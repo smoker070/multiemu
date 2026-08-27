@@ -19,14 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This licence covers Multiemu's own source code only.
-
-Multiemu runs QEMU as a separate child process and never links it. QEMU is
-GPL-2.0-only and carries its own terms; a build that bundles QEMU binaries must
-also carry QEMU's COPYING file and the corresponding source, which
-`scripts/collect-licenses.sh` enforces. Android system images are not part of
-this repository and are subject to their own licences. See
-docs/DEPENDENCIES-AND-LICENSING.md for the full map.

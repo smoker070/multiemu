@@ -27,5 +27,9 @@ reports/*.json
 *.mobileprovision
 AuthKey_*.p8
 
+# Assistant/session scaffolding. Not part of the project, and it carries this
+# machine's absolute paths.
+.claude/
+
 # macOS noise
 .DS_Store
