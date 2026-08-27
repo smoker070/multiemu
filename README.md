@@ -101,8 +101,8 @@ If you would rather not do either, build it yourself — that path needs no
 credentials and produces the same application:
 
 ```bash
-git clone <this repository>
-cd Multiemu
+git clone https://github.com/smoker070/multiemu.git
+cd multiemu
 swift build && swift test
 scripts/build-app.sh
 open build/Multiemu.app

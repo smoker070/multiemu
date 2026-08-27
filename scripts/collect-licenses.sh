@@ -18,7 +18,7 @@ QEMU_SOURCE=""
 # Defaulted rather than left empty, because the failure mode of forgetting it is
 # a licence document shipping the literal text "[SOURCE URL NOT SET]" — a
 # written offer with no address is not an offer. Override for a fork.
-SOURCE_URL="${MULTIEMU_SOURCE_URL:-https://github.com/ismoil/multiemu}"
+SOURCE_URL="${MULTIEMU_SOURCE_URL:-https://github.com/smoker070/multiemu}"
 HOLDER="${MULTIEMU_COPYRIGHT_HOLDER:-the Multiemu authors}"
 
 shift || true
