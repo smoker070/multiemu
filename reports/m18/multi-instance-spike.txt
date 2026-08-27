@@ -1,0 +1,129 @@
+# Multi-instance spike — sequential, 4 devices
+multiemu-multi-instance-spike
+  qemu                                       /opt/homebrew/bin/qemu-system-aarch64
+  host                                       Apple M5 · 10 logical cores
+  host memory                                16.00 GiB
+  memory budget for guests                   9.60 GiB
+  devices requested                          4 × 2 GiB
+
+Starting devices
+  mode                                       sequential
+  device 1                                   started · port 55793 · 0 already running
+  device 2                                   started · port 55794 · 1 already running
+  device 3                                   started · port 55795 · 2 already running
+  device 4                                   started · port 55796 · 3 already running
+
+  admitted memory                            8.00 GiB
+  budget                                     9.60 GiB
+  within budget                              PASS
+
+1. Each device runs under its own helper process
+  running devices                            4
+  distinct helper PIDs                       4 of 4 — 10654, 10655, 10656, 10657
+  verdict                                    PASS
+
+2. The read-only image is shared, not copied
+  read-only disks attached                   4
+  distinct files behind them                 1
+  shared image size                          256.0 MiB
+  verdict                                    PASS — one file, 4 devices
+
+3. Forwarded ports are distinct, and bound to loopback only
+  ports                                      55793, 55794, 55795, 55796
+  distinct                                   4 of 4
+  wildcard bindings                          none
+  verdict                                    PASS
+
+4. Admission accounts for devices already running
+  budget                                     9.60 GiB
+  committed by running devices               8.00 GiB
+  remaining                                  1.60 GiB
+  about to request                           2.60 GiB
+  allowed on an empty host                   yes
+  allowed alongside running                  no
+      2.60 GiB of guest memory requested, but 8.00 GiB is already committed to 4 running devices and this Mac allows 9.60 GiB in total. Stop a running device, or give this one less guest memory.
+  verdict                                    PASS
+
+5. A port another device already forwards is refused
+  as a lone device                           accepted
+  alongside running                          rejected
+  verdict                                    PASS
+
+Shutting down
+  devices stopped                            4
+  still committed                            0 devices
+
+Result
+  separate helper processes                  PASS
+  read-only image shared, not copied         PASS
+  distinct loopback-only ports               PASS
+  admission accounts for running devices     PASS
+  port clash refused against running devices PASS
+  admitted devices fit the host budget       PASS
+
+# Multi-instance spike — concurrent, 6 devices against a 9.60 GiB budget
+multiemu-multi-instance-spike
+  qemu                                       /opt/homebrew/bin/qemu-system-aarch64
+  host                                       Apple M5 · 10 logical cores
+  host memory                                16.00 GiB
+  memory budget for guests                   9.60 GiB
+  devices requested                          6 × 2 GiB
+
+Starting devices
+  mode                                       concurrent — all 6 devices start at once
+  started                                    Device 1 · port 55797
+  started                                    Device 2 · port 55798
+  started                                    Device 3 · port 55799
+  started                                    Device 4 · port 55800
+
+  admitted memory                            8.00 GiB
+  budget                                     9.60 GiB
+  within budget                              PASS
+
+1. Each device runs under its own helper process
+  running devices                            4
+  distinct helper PIDs                       4 of 4 — 10684, 10682, 10683, 10685
+  verdict                                    PASS
+
+2. The read-only image is shared, not copied
+  read-only disks attached                   4
+  distinct files behind them                 1
+  shared image size                          256.0 MiB
+  verdict                                    PASS — one file, 4 devices
+
+3. Forwarded ports are distinct, and bound to loopback only
+  ports                                      55798, 55797, 55800, 55799
+  distinct                                   4 of 4
+  wildcard bindings                          none
+  verdict                                    PASS
+
+4. Admission accounts for devices already running
+  budget                                     9.60 GiB
+  committed by running devices               8.00 GiB
+  remaining                                  1.60 GiB
+  about to request                           2.60 GiB
+  allowed on an empty host                   yes
+  allowed alongside running                  no
+      2.60 GiB of guest memory requested, but 8.00 GiB is already committed to 4 running devices and this Mac allows 9.60 GiB in total. Stop a running device, or give this one less guest memory.
+  verdict                                    PASS
+
+5. A port another device already forwards is refused
+  as a lone device                           accepted
+  alongside running                          rejected
+  verdict                                    PASS
+
+Shutting down
+  devices stopped                            4
+  still committed                            0 devices
+
+Result
+  separate helper processes                  PASS
+  read-only image shared, not copied         PASS
+  distinct loopback-only ports               PASS
+  admission accounts for running devices     PASS
+  port clash refused against running devices PASS
+  admitted devices fit the host budget       PASS
+
+  devices that did not start:
+    device 5: 2.00 GiB of guest memory requested, but 8.00 GiB is already committed to 4 running devices and this Mac allows 9.60 GiB in total. Stop a running device, or give this one less guest memory.
+    device 6: 2.00 GiB of guest memory requested, but 8.00 GiB is already committed to 4 running devices and this Mac allows 9.60 GiB in total. Stop a running device, or give this one less guest memory.

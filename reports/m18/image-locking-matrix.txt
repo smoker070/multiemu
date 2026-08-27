@@ -1,0 +1,37 @@
+# M18 evidence — captured 2026-08-20T05:53:43Z
+
+## Image locking matrix (scripts/probe-image-sharing.sh)
+QEMU:  QEMU emulator version 11.1.0
+Image: /var/folders/ng/p5cfcrrn3r567vxtt92n3p400000gn/T/tmp.jqra1DabjX/shared.img
+
+A. read-only + read-only  (what sharing an image needs)
+  first : readonly=on
+  second: readonly=on
+  -> BOTH RUNNING
+
+B. writable + writable    (CONTROL: proves locking is active)
+  first : writable
+  second: writable
+  -> SECOND REFUSED
+     qemu-system-aarch64: -device virtio-blk-pci,drive=d0: Failed to get "write" lock
+     Is another process using the image [/var/folders/ng/p5cfcrrn3r567vxtt92n3p400000gn/T/tmp.jqra1DabjX/shared.img]?
+
+C. writable + read-only   (a writer must not be shadowed)
+  first : writable
+  second: readonly=on
+  -> SECOND REFUSED
+     qemu-system-aarch64: -device virtio-blk-pci,drive=d0: Failed to get shared "write" lock
+     Is another process using the image [/var/folders/ng/p5cfcrrn3r567vxtt92n3p400000gn/T/tmp.jqra1DabjX/shared.img]?
+
+D. read-only + writable   (reader first, then writer)
+  first : readonly=on
+  second: writable
+  -> SECOND REFUSED
+     qemu-system-aarch64: -device virtio-blk-pci,drive=d0: Failed to get "write" lock
+     Is another process using the image [/var/folders/ng/p5cfcrrn3r567vxtt92n3p400000gn/T/tmp.jqra1DabjX/shared.img]?
+
+Expected on a correctly locking QEMU: A shares, B/C/D are all refused.
+
+That combination is what makes read-only sharing safe: it works, and it only
+works while nobody opens the image writable. See docs/VERIFY.md,
+QEMU-SHARES-READ-ONLY-IMAGES.

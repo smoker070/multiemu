@@ -1,0 +1,31 @@
+# Build products
+.build/
+build/
+*.dSYM/
+.swiftpm/
+DerivedData/
+
+# Vendored third-party source and downloads.
+#
+# 3.8 GB of it: the QEMU tarball, extracted trees, Android image sets and test
+# kernels. None of it is ours and none belongs in the history — the QEMU source
+# we are obliged to publish is republished from its own pinned tarball, whose
+# checksum is recorded in docs, not by committing 130 MB of it here.
+vendor/
+
+# Generated reports and captures from local runs.
+reports/*.json
+*.dmg
+*.png
+*.wav
+
+# Signing material and machine-specific secrets never belong in the repository.
+# See docs/DEPENDENCIES-AND-LICENSING.md §7.
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision
+AuthKey_*.p8
+
+# macOS noise
+.DS_Store

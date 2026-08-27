@@ -1,0 +1,917 @@
+{
+  "content" : {
+    "enabled" : false,
+    "frame" : {
+      "h" : 760,
+      "w" : 1180
+    },
+    "isElement" : true,
+    "role" : "AXGroup",
+    "subrole" : "AXHostingView"
+  },
+  "frame" : {
+    "h" : 760,
+    "w" : 1180
+  },
+  "title" : "Pixel-style 1080p",
+  "views" : {
+    "children" : [
+      {
+        "children" : [
+          {
+            "children" : [
+              {
+                "children" : [
+                  {
+                    "children" : [
+                      {
+                        "children" : [
+                          {
+                            "children" : [
+                              {
+                                "children" : [
+                                  {
+                                    "children" : [
+                                      {
+                                        "children" : [
+                                          {
+                                            "class" : "NSHostingView<ModifiedContent<_ViewList_View, NavigationPaneModifier<ContainerStyleContext>>>",
+                                            "frame" : {
+                                              "h" : 396,
+                                              "w" : 1180
+                                            }
+                                          }
+                                        ],
+                                        "class" : "_NSSplitViewItemViewWrapper",
+                                        "frame" : {
+                                          "h" : 396,
+                                          "w" : 1180
+                                        }
+                                      },
+                                      {
+                                        "children" : [
+                                          {
+                                            "children" : [
+                                              {
+                                                "class" : "KeyViewProxy",
+                                                "frame" : {
+                                                  "h" : 26,
+                                                  "w" : 40
+                                                }
+                                              },
+                                              {
+                                                "children" : [
+                                                  {
+                                                    "children" : [
+                                                      {
+                                                        "children" : [
+                                                          {
+                                                            "class" : "NSCorePlatformViewHost<PlatformViewRepresentableAdaptor<WindowPortal<_ViewModifier_Content<LiftPortalEffect>>>>",
+                                                            "frame" : {
+                                                              "h" : 24,
+                                                              "w" : 78
+                                                            }
+                                                          }
+                                                        ],
+                                                        "class" : "_NSCoreHostingView<AppKitSegmentedControl>",
+                                                        "frame" : {
+                                                          "h" : 24,
+                                                          "w" : 390
+                                                        }
+                                                      }
+                                                    ],
+                                                    "class" : "SwiftUISegmentedControl",
+                                                    "frame" : {
+                                                      "h" : 24,
+                                                      "w" : 390
+                                                    }
+                                                  }
+                                                ],
+                                                "class" : "AppKitPlatformViewHost<PlatformViewRepresentableAdaptor<SystemSegmentedControl>>",
+                                                "frame" : {
+                                                  "h" : 24,
+                                                  "w" : 390
+                                                }
+                                              },
+                                              {
+                                                "class" : "_FocusRingView",
+                                                "frame" : {
+                                                  "h" : 26,
+                                                  "w" : 40
+                                                }
+                                              },
+                                              {
+                                                "children" : [
+                                                  {
+                                                    "children" : [
+                                                      {
+                                                        "children" : [
+                                                          {
+                                                            "class" : "DocumentView",
+                                                            "frame" : {
+                                                              "h" : 12,
+                                                              "w" : 1180
+                                                            }
+                                                          }
+                                                        ],
+                                                        "class" : "NSClipView",
+                                                        "frame" : {
+                                                          "h" : 325,
+                                                          "w" : 1180
+                                                        }
+                                                      },
+                                                      {
+                                                        "class" : "NSScroller",
+                                                        "frame" : {
+                                                          "h" : 100,
+                                                          "w" : 0
+                                                        },
+                                                        "hidden" : true
+                                                      }
+                                                    ],
+                                                    "class" : "HostingScrollView",
+                                                    "frame" : {
+                                                      "h" : 325,
+                                                      "w" : 1180
+                                                    }
+                                                  }
+                                                ],
+                                                "class" : "PlatformContainer",
+                                                "frame" : {
+                                                  "h" : 325,
+                                                  "w" : 1180
+                                                }
+                                              }
+                                            ],
+                                            "class" : "NSHostingView<ModifiedContent<_ViewList_View, NavigationPaneModifier<ContainerStyleContext>>>",
+                                            "frame" : {
+                                              "h" : 364,
+                                              "w" : 1180
+                                            }
+                                          }
+                                        ],
+                                        "class" : "_NSSplitViewItemViewWrapper",
+                                        "frame" : {
+                                          "h" : 364,
+                                          "w" : 1180
+                                        }
+                                      },
+                                      {
+                                        "class" : "NSSplitDividerView",
+                                        "frame" : {
+                                          "h" : 5,
+                                          "w" : 1180
+                                        }
+                                      }
+                                    ],
+                                    "class" : "NSSplitView",
+                                    "frame" : {
+                                      "h" : 760,
+                                      "w" : 1180
+                                    }
+                                  }
+                                ],
+                                "class" : "NSView",
+                                "frame" : {
+                                  "h" : 760,
+                                  "w" : 1180
+                                }
+                              }
+                            ],
+                            "class" : "AppKitPlatformViewHost<PlatformViewRepresentableAdaptor<SystemSplitView>>",
+                            "frame" : {
+                              "h" : 760,
+                              "w" : 1180
+                            }
+                          }
+                        ],
+                        "class" : "NSHostingView<ModifiedContent<ColumnView, NavigationPaneModifier<ContainerStyleContext>>>",
+                        "frame" : {
+                          "h" : 760,
+                          "w" : 1180
+                        }
+                      }
+                    ],
+                    "class" : "_NSSplitViewItemViewWrapper",
+                    "frame" : {
+                      "h" : 760,
+                      "w" : 1180
+                    }
+                  },
+                  {
+                    "children" : [
+                      {
+                        "children" : [
+                          {
+                            "children" : [
+                              {
+                                "children" : [
+                                  {
+                                    "class" : "NSView",
+                                    "frame" : {
+                                      "h" : 72,
+                                      "w" : 1236
+                                    }
+                                  }
+                                ],
+                                "class" : "NSView",
+                                "frame" : {
+                                  "h" : 80,
+                                  "w" : 1180
+                                }
+                              }
+                            ],
+                            "class" : "PocketMask",
+                            "frame" : {
+                              "h" : 80,
+                              "w" : 1180
+                            },
+                            "hidden" : true
+                          },
+                          {
+                            "children" : [
+                              {
+                                "class" : "PortalView",
+                                "frame" : {
+                                  "h" : 80,
+                                  "w" : 1180
+                                }
+                              }
+                            ],
+                            "class" : "PocketBlur",
+                            "frame" : {
+                              "h" : 80,
+                              "w" : 1180
+                            },
+                            "hidden" : true
+                          },
+                          {
+                            "children" : [
+                              {
+                                "class" : "BackdropView",
+                                "frame" : {
+                                  "h" : 52,
+                                  "w" : 1180
+                                }
+                              },
+                              {
+                                "alpha" : 0.90000000000000002,
+                                "children" : [
+                                  {
+                                    "class" : "NSVisualEffectView",
+                                    "frame" : {
+                                      "h" : 52,
+                                      "w" : 1180
+                                    }
+                                  }
+                                ],
+                                "class" : "_NSScrollViewContentBackgroundView",
+                                "frame" : {
+                                  "h" : 52,
+                                  "w" : 1180
+                                }
+                              },
+                              {
+                                "class" : "_NSLayerBasedFillColorView",
+                                "frame" : {
+                                  "h" : 1,
+                                  "w" : 1180
+                                }
+                              }
+                            ],
+                            "class" : "NSHardPocketView",
+                            "frame" : {
+                              "h" : 52,
+                              "w" : 1180
+                            }
+                          },
+                          {
+                            "children" : [
+                              {
+                                "children" : [
+                                  {
+                                    "children" : [
+                                      {
+                                        "alpha" : 0.84999999999999998,
+                                        "class" : "BackdropView",
+                                        "frame" : {
+                                          "h" : 80,
+                                          "w" : 1180
+                                        },
+                                        "hidden" : true
+                                      },
+                                      {
+                                        "alpha" : 0.84999999999999998,
+                                        "children" : [
+                                          {
+                                            "class" : "NSVisualEffectView",
+                                            "frame" : {
+                                              "h" : 80,
+                                              "w" : 1180
+                                            }
+                                          }
+                                        ],
+                                        "class" : "_NSScrollViewContentBackgroundView",
+                                        "frame" : {
+                                          "h" : 80,
+                                          "w" : 1180
+                                        }
+                                      }
+                                    ],
+                                    "class" : "NSView",
+                                    "frame" : {
+                                      "h" : 80,
+                                      "w" : 1180
+                                    }
+                                  },
+                                  {
+                                    "children" : [
+                                      {
+                                        "alpha" : 0,
+                                        "class" : "NSView",
+                                        "frame" : {
+                                          "h" : 80,
+                                          "w" : 1180
+                                        }
+                                      },
+                                      {
+                                        "alpha" : 0,
+                                        "class" : "NSView",
+                                        "frame" : {
+                                          "h" : 80,
+                                          "w" : 1180
+                                        }
+                                      }
+                                    ],
+                                    "class" : "NSView",
+                                    "frame" : {
+                                      "h" : 80,
+                                      "w" : 1180
+                                    }
+                                  }
+                                ],
+                                "class" : "NSView",
+                                "frame" : {
+                                  "h" : 80,
+                                  "w" : 1180
+                                }
+                              },
+                              {
+                                "class" : "PortalView",
+                                "frame" : {
+                                  "h" : 80,
+                                  "w" : 1180
+                                }
+                              }
+                            ],
+                            "class" : "LuminanceAdjustment",
+                            "frame" : {
+                              "h" : 80,
+                              "w" : 1180
+                            },
+                            "hidden" : true
+                          },
+                          {
+                            "children" : [
+                              {
+                                "alpha" : 0.01,
+                                "class" : "AdditionalDimmingView",
+                                "frame" : {
+                                  "h" : 208,
+                                  "w" : 1420
+                                }
+                              }
+                            ],
+                            "class" : "NSView",
+                            "frame" : {
+                              "h" : 52,
+                              "w" : 1180
+                            },
+                            "hidden" : true
+                          }
+                        ],
+                        "class" : "NSScrollPocket",
+                        "frame" : {
+                          "h" : 52,
+                          "w" : 1180
+                        }
+                      }
+                    ],
+                    "class" : "NSTitlebarBackgroundView",
+                    "frame" : {
+                      "h" : 52,
+                      "w" : 1180
+                    }
+                  },
+                  {
+                    "class" : "_NSSplitViewShadowView",
+                    "frame" : {
+                      "h" : 760,
+                      "w" : 12
+                    }
+                  },
+                  {
+                    "children" : [
+                      {
+                        "class" : "NSTitlebarBackgroundView",
+                        "frame" : {
+                          "h" : 52,
+                          "w" : 268
+                        }
+                      },
+                      {
+                        "children" : [
+                          {
+                            "class" : "BackdropView",
+                            "frame" : {
+                              "h" : 760,
+                              "w" : 268
+                            }
+                          }
+                        ],
+                        "class" : "NSBlurryAlleywayView",
+                        "frame" : {
+                          "h" : 760,
+                          "w" : 268
+                        }
+                      },
+                      {
+                        "children" : [
+                          {
+                            "children" : [
+                              {
+                                "children" : [
+                                  {
+                                    "children" : [
+                                      {
+                                        "class" : "KeyViewProxy",
+                                        "frame" : {
+                                          "h" : 24,
+                                          "w" : 118
+                                        }
+                                      },
+                                      {
+                                        "children" : [
+                                          {
+                                            "children" : [
+                                              {
+                                                "class" : "BackdropView",
+                                                "frame" : {
+                                                  "h" : 44,
+                                                  "w" : 260
+                                                }
+                                              },
+                                              {
+                                                "children" : [
+                                                  {
+                                                    "children" : [
+                                                      {
+                                                        "children" : [
+                                                          {
+                                                            "class" : "_NSTableRowSeparatorDrawingView",
+                                                            "frame" : {
+                                                              "h" : 19,
+                                                              "w" : 260
+                                                            }
+                                                          },
+                                                          {
+                                                            "class" : "ListTableHeaderView",
+                                                            "frame" : {
+                                                              "h" : 19,
+                                                              "w" : 244
+                                                            }
+                                                          }
+                                                        ],
+                                                        "class" : "ListTableRowView",
+                                                        "frame" : {
+                                                          "h" : 19,
+                                                          "w" : 260
+                                                        }
+                                                      },
+                                                      {
+                                                        "children" : [
+                                                          {
+                                                            "class" : "_NSTableRowSeparatorDrawingView",
+                                                            "frame" : {
+                                                              "h" : 45,
+                                                              "w" : 260
+                                                            }
+                                                          },
+                                                          {
+                                                            "class" : "ListTableCellView",
+                                                            "frame" : {
+                                                              "h" : 45,
+                                                              "w" : 228
+                                                            }
+                                                          }
+                                                        ],
+                                                        "class" : "ListTableRowView",
+                                                        "frame" : {
+                                                          "h" : 45,
+                                                          "w" : 260
+                                                        }
+                                                      },
+                                                      {
+                                                        "children" : [
+                                                          {
+                                                            "class" : "_NSTableRowSeparatorDrawingView",
+                                                            "frame" : {
+                                                              "h" : 45,
+                                                              "w" : 260
+                                                            }
+                                                          },
+                                                          {
+                                                            "class" : "ListTableCellView",
+                                                            "frame" : {
+                                                              "h" : 45,
+                                                              "w" : 228
+                                                            }
+                                                          }
+                                                        ],
+                                                        "class" : "ListTableRowView",
+                                                        "frame" : {
+                                                          "h" : 45,
+                                                          "w" : 260
+                                                        }
+                                                      }
+                                                    ],
+                                                    "class" : "SwiftUIOutlineListView",
+                                                    "frame" : {
+                                                      "h" : 648,
+                                                      "w" : 260
+                                                    }
+                                                  }
+                                                ],
+                                                "class" : "ListCoreClipView",
+                                                "frame" : {
+                                                  "h" : 744,
+                                                  "w" : 260
+                                                }
+                                              },
+                                              {
+                                                "children" : [
+                                                  {
+                                                    "alpha" : 0,
+                                                    "children" : [
+                                                      {
+                                                        "children" : [
+                                                          {
+                                                            "class" : "NSView",
+                                                            "frame" : {
+                                                              "h" : 64,
+                                                              "w" : 325
+                                                            }
+                                                          }
+                                                        ],
+                                                        "class" : "NSView",
+                                                        "frame" : {
+                                                          "h" : 72,
+                                                          "w" : 260
+                                                        }
+                                                      }
+                                                    ],
+                                                    "class" : "PocketMask",
+                                                    "frame" : {
+                                                      "h" : 72,
+                                                      "w" : 260
+                                                    }
+                                                  },
+                                                  {
+                                                    "alpha" : 0,
+                                                    "children" : [
+                                                      {
+                                                        "class" : "PortalView",
+                                                        "frame" : {
+                                                          "h" : 72,
+                                                          "w" : 260
+                                                        }
+                                                      }
+                                                    ],
+                                                    "class" : "PocketBlur",
+                                                    "frame" : {
+                                                      "h" : 72,
+                                                      "w" : 260
+                                                    }
+                                                  },
+                                                  {
+                                                    "children" : [
+                                                      {
+                                                        "class" : "BackdropView",
+                                                        "frame" : {
+                                                          "h" : 0,
+                                                          "w" : 0
+                                                        }
+                                                      },
+                                                      {
+                                                        "alpha" : 0.90000000000000002,
+                                                        "class" : "BackdropView",
+                                                        "frame" : {
+                                                          "h" : 0,
+                                                          "w" : 0
+                                                        }
+                                                      }
+                                                    ],
+                                                    "class" : "NSHardPocketView",
+                                                    "frame" : {
+                                                      "h" : 0,
+                                                      "w" : 0
+                                                    },
+                                                    "hidden" : true
+                                                  },
+                                                  {
+                                                    "children" : [
+                                                      {
+                                                        "children" : [
+                                                          {
+                                                            "alpha" : 0,
+                                                            "class" : "NSView",
+                                                            "frame" : {
+                                                              "h" : 72,
+                                                              "w" : 260
+                                                            }
+                                                          },
+                                                          {
+                                                            "alpha" : 0,
+                                                            "class" : "NSView",
+                                                            "frame" : {
+                                                              "h" : 72,
+                                                              "w" : 260
+                                                            }
+                                                          }
+                                                        ],
+                                                        "class" : "NSView",
+                                                        "frame" : {
+                                                          "h" : 72,
+                                                          "w" : 260
+                                                        }
+                                                      },
+                                                      {
+                                                        "class" : "PortalView",
+                                                        "frame" : {
+                                                          "h" : 72,
+                                                          "w" : 260
+                                                        }
+                                                      }
+                                                    ],
+                                                    "class" : "LuminanceAdjustment",
+                                                    "frame" : {
+                                                      "h" : 72,
+                                                      "w" : 260
+                                                    }
+                                                  },
+                                                  {
+                                                    "alpha" : 0,
+                                                    "children" : [
+                                                      {
+                                                        "alpha" : 0,
+                                                        "class" : "AdditionalDimmingView",
+                                                        "frame" : {
+                                                          "h" : 0,
+                                                          "w" : 0
+                                                        }
+                                                      }
+                                                    ],
+                                                    "class" : "NSView",
+                                                    "frame" : {
+                                                      "h" : 44,
+                                                      "w" : 260
+                                                    }
+                                                  }
+                                                ],
+                                                "class" : "NSScrollPocket",
+                                                "frame" : {
+                                                  "h" : 44,
+                                                  "w" : 260
+                                                }
+                                              },
+                                              {
+                                                "class" : "NSScroller",
+                                                "frame" : {
+                                                  "h" : 0,
+                                                  "w" : 17
+                                                },
+                                                "hidden" : true
+                                              }
+                                            ],
+                                            "class" : "ListCoreScrollView",
+                                            "frame" : {
+                                              "h" : 744,
+                                              "w" : 260
+                                            }
+                                          }
+                                        ],
+                                        "class" : "AppKitPlatformViewHost<OutlineListRepresentable<SelectionManagerBox<UUID>>>",
+                                        "frame" : {
+                                          "h" : 744,
+                                          "w" : 260
+                                        }
+                                      },
+                                      {
+                                        "class" : "_FocusRingView",
+                                        "frame" : {
+                                          "h" : 24,
+                                          "w" : 118
+                                        }
+                                      },
+                                      {
+                                        "children" : [
+                                          {
+                                            "children" : [
+                                              {
+                                                "class" : "NSButtonImageView",
+                                                "frame" : {
+                                                  "h" : 15,
+                                                  "w" : 15
+                                                }
+                                              },
+                                              {
+                                                "class" : "NSPopUpIndicatorView",
+                                                "frame" : {
+                                                  "h" : 5,
+                                                  "w" : 7
+                                                }
+                                              }
+                                            ],
+                                            "class" : "SwiftUIPopupButton",
+                                            "frame" : {
+                                              "h" : 15,
+                                              "w" : 39
+                                            }
+                                          }
+                                        ],
+                                        "class" : "AppKitPlatformViewHost<PlatformViewRepresentableAdaptor<PlatformView>>",
+                                        "frame" : {
+                                          "h" : 15,
+                                          "w" : 34
+                                        }
+                                      }
+                                    ],
+                                    "class" : "NSHostingView<ModifiedContent<ColumnView, NavigationPaneModifier<SidebarStyleContext>>>",
+                                    "frame" : {
+                                      "h" : 744,
+                                      "w" : 260
+                                    }
+                                  }
+                                ],
+                                "class" : "NSView",
+                                "frame" : {
+                                  "h" : 744,
+                                  "w" : 260
+                                }
+                              }
+                            ],
+                            "class" : "ContentHolderView",
+                            "frame" : {
+                              "h" : 744,
+                              "w" : 260
+                            }
+                          },
+                          {
+                            "class" : "_NSCoreHostingView<RootView>",
+                            "frame" : {
+                              "h" : 744,
+                              "w" : 260
+                            }
+                          }
+                        ],
+                        "class" : "NSContainerConcentricGlassEffectView",
+                        "frame" : {
+                          "h" : 744,
+                          "w" : 260
+                        }
+                      }
+                    ],
+                    "class" : "_NSSplitViewItemViewWrapper",
+                    "frame" : {
+                      "h" : 760,
+                      "w" : 268
+                    }
+                  },
+                  {
+                    "class" : "NSSplitDividerView",
+                    "frame" : {
+                      "h" : 760,
+                      "w" : 0
+                    },
+                    "hidden" : true
+                  },
+                  {
+                    "class" : "_NSSplitViewCollapsedInteractionsView",
+                    "frame" : {
+                      "h" : 760,
+                      "w" : 15
+                    }
+                  },
+                  {
+                    "class" : "_NSSplitViewCollapsedInteractionsView",
+                    "frame" : {
+                      "h" : 760,
+                      "w" : 15
+                    }
+                  }
+                ],
+                "class" : "NSSplitView",
+                "frame" : {
+                  "h" : 760,
+                  "w" : 1180
+                }
+              }
+            ],
+            "class" : "NSView",
+            "frame" : {
+              "h" : 760,
+              "w" : 1180
+            }
+          }
+        ],
+        "class" : "AppKitPlatformViewHost<PlatformViewRepresentableAdaptor<NavigationSplitRepresentable>>",
+        "frame" : {
+          "h" : 760,
+          "w" : 1180
+        }
+      }
+    ],
+    "class" : "AppKitWindowHostingView<ModifiedContent<AnyView, RootModifier>>",
+    "frame" : {
+      "h" : 760,
+      "w" : 1180
+    }
+  },
+  "window" : {
+    "children" : [
+      {
+        "enabled" : false,
+        "frame" : {
+          "h" : 760,
+          "w" : 1180
+        },
+        "isElement" : true,
+        "role" : "AXGroup",
+        "subrole" : "AXHostingView"
+      },
+      {
+        "enabled" : false,
+        "frame" : {
+          "h" : 52,
+          "w" : 1180
+        },
+        "isElement" : true,
+        "role" : "AXToolbar"
+      },
+      {
+        "frame" : {
+          "h" : 16,
+          "w" : 16
+        },
+        "isElement" : true,
+        "role" : "AXButton",
+        "subrole" : "AXCloseButton"
+      },
+      {
+        "children" : [
+          {
+            "enabled" : false,
+            "frame" : {
+              "h" : 14,
+              "w" : 14
+            },
+            "isElement" : true,
+            "role" : "AXGroup"
+          }
+        ],
+        "frame" : {
+          "h" : 16,
+          "w" : 16
+        },
+        "isElement" : true,
+        "role" : "AXButton",
+        "subrole" : "AXFullScreenButton"
+      },
+      {
+        "frame" : {
+          "h" : 16,
+          "w" : 16
+        },
+        "isElement" : true,
+        "role" : "AXButton",
+        "subrole" : "AXMinimizeButton"
+      },
+      {
+        "role" : "opaque"
+      },
+      {
+        "role" : "opaque"
+      }
+    ],
+    "enabled" : false,
+    "frame" : {
+      "h" : 760,
+      "w" : 1180
+    },
+    "isElement" : true,
+    "label" : "Pixel-style 1080p – Stopped",
+    "role" : "AXWindow",
+    "subrole" : "AXStandardWindow",
+    "title" : "Pixel-style 1080p – Stopped"
+  }
+}

@@ -1,0 +1,88 @@
+# Display control — shipped allocation (2560x2560 square)
+multiemu-display-control-spike
+  qemu                           /opt/homebrew/bin/qemu-system-aarch64
+  boot allocation                2560×2560
+  matches the shipped value      yes (DisplayProfile.runtimeFramebufferSide)
+
+  guest's first scanout          640×480
+
+Applying every preset to the running guest
+
+Rotating at runtime
+
+  requested                asked for      guest produced honoured
+  1280 × 720 1280×720 1280×720 yes
+  1600 × 900 1600×900 1600×900 yes
+  1920 × 1080 1920×1080 1920×1080 yes
+  2560 × 1440 2560×1440 2560×1440 yes
+  720 × 1280 720×1280 720×1280 yes
+  900 × 1600 900×1600 900×1600 yes
+  1080 × 1920 1080×1920 1080×1920 yes
+  1440 × 2560 1440×2560 1440×2560 yes
+  before rotation 1600×900 1600×900 yes
+  after rotation 900×1600 900×1600 yes
+
+  modes honoured                 10 of 10
+  total scanouts observed        21
+
+  Every preset and the rotation applied to a running guest, with no restart.
+
+# The rule demonstrated by breaking it — boot allocation 1280x720
+multiemu-display-control-spike
+  qemu                           /opt/homebrew/bin/qemu-system-aarch64
+  boot allocation                1280×720
+  matches the shipped value      no — demonstrating the rule by breaking it
+
+  guest's first scanout          640×480
+
+Applying every preset to the running guest
+
+Rotating at runtime
+
+  requested                asked for      guest produced honoured
+  1280 × 720 1280×720 1280×720 yes
+  1600 × 900 1600×900 800×600 NO
+  1920 × 1080 1920×1080 800×600 NO
+  2560 × 1440 2560×1440 800×600 NO
+  720 × 1280 720×1280 800×600 NO
+  900 × 1600 900×1600 800×600 NO
+  1080 × 1920 1080×1920 800×600 NO
+  1440 × 2560 1440×2560 800×600 NO
+  before rotation 1600×900 800×600 NO
+  after rotation 900×1600 800×600 NO
+
+  modes honoured                 1 of 10
+  total scanouts observed        13
+
+  Ran with a non-shipping allocation, so a refusal here is the expected
+  demonstration rather than a defect.
+
+# Partial coverage — boot allocation 2560x1440 (height capped)
+multiemu-display-control-spike
+  qemu                           /opt/homebrew/bin/qemu-system-aarch64
+  boot allocation                2560×1440
+  matches the shipped value      no — demonstrating the rule by breaking it
+
+  guest's first scanout          640×480
+
+Applying every preset to the running guest
+
+Rotating at runtime
+
+  requested                asked for      guest produced honoured
+  1280 × 720 1280×720 1280×720 yes
+  1600 × 900 1600×900 1600×900 yes
+  1920 × 1080 1920×1080 1920×1080 yes
+  2560 × 1440 2560×1440 2560×1440 yes
+  720 × 1280 720×1280 720×1280 yes
+  900 × 1600 900×1600 1920×1440 NO
+  1080 × 1920 1080×1920 1920×1440 NO
+  1440 × 2560 1440×2560 1920×1440 NO
+  before rotation 1600×900 1600×900 yes
+  after rotation 900×1600 1920×1440 NO
+
+  modes honoured                 6 of 10
+  total scanouts observed        19
+
+  Ran with a non-shipping allocation, so a refusal here is the expected
+  demonstration rather than a defect.

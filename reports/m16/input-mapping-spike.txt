@@ -1,0 +1,42 @@
+multiemu-input-mapping-spike
+  qemu                                                 /opt/homebrew/bin/qemu-system-aarch64
+  guest display                                        1280×720
+
+One press of the mapped key produces
+    touchBegin(slot: 0, x: 960.0, y: 180.0)
+  profile position                                     (0.75, 0.25)
+  expected guest pixels                                (960, 180)
+  lands where the profile asked                        PASS
+
+1. With a multitouch device attached
+  MultiTouch.MaxSlots                                  10
+  QEMU accepted the mapped events                      yes
+  guest kernel enumerated                              QEMU Virtio Keyboard, QEMU Virtio Tablet, QEMU Virtio MultiTouch
+  guest sees a multitouch device                       PASS
+
+2. CONTROL — the same events, no multitouch device
+   Without this, "QEMU accepted them" would prove nothing.
+  MultiTouch.MaxSlots                                  10
+  QEMU accepted the mapped events                      yes
+  guest kernel enumerated                              QEMU Virtio Keyboard, QEMU Virtio Tablet
+
+Result
+  mapping puts the touch where the profile asked       PASS
+  guest enumerates a multitouch device when configured PASS
+  guest enumerates none when it is not configured      PASS
+  QEMU accepts the mapped events                       PASS
+
+What this run does and does not establish
+  The device half is settled by the guest itself: Linux enumerates
+  "QEMU Virtio MultiTouch" only when it is configured, so the device
+  reaches the guest kernel.
+
+  Acceptance is NOT discriminating: QEMU accepted the same events with no
+  multitouch device attached, and still reported MaxSlots = 10.
+  So "QEMU accepted them" is not evidence of delivery, and is not claimed as such.
+
+  UNVERIFIED: the coordinates a guest ultimately reads. The Linux fixture
+  has no evdev interface — its initramfs runs no udev, the handler is
+  absent, /sys/class/input/inputN has no eventN and /dev/input does not
+  exist — so nothing in the guest can observe a touch. That waits for an
+  Android guest (Milestone 4).

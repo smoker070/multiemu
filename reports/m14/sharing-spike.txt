@@ -1,0 +1,40 @@
+multiemu-sharing-spike
+  qemu                                         /opt/homebrew/bin/qemu-system-aarch64
+  host directory                               multiemu share, with comma-B5C5480D-5E6F-4D83-A083-AE94D1D5ABAA
+  mount tag                                    multiemu
+  read-only                                    yes
+
+1. Does the share reach the guest?
+  QEMU started with the share                  yes
+  virtio PCI devices the guest enabled, with s 3
+  virtio PCI devices the guest enabled, withou 2
+  the share adds a device the guest sees       PASS
+
+2. Does QEMU's clipboard channel answer?
+  with a share                                 Register accepted; Grab accepted; Request failed (no guest agent)
+  without a share                              Register accepted; Grab accepted; Request failed (no guest agent)
+  the host can register as a clipboard peer    PASS
+
+3. Confinement (covered by tests; restated here as a live check)
+  guest asked for ../../etc/passwd             refused
+  guest asked for /etc/passwd                  refused
+  guest asked for marker.txt\0/../../etc/passw refused
+  guest asked for ..                           refused
+  guest asked for marker.txt                   resolved inside the share
+  confinement holds                            PASS
+
+Result
+  the share reaches the guest as a device      PASS
+  the host registers as a clipboard peer       PASS
+  guest paths are confined to the share        PASS
+
+What this cannot establish here
+  The guest cannot MOUNT the share: this fixture's kernel has no 9p
+  driver, built in or as a module, so nothing inside it can read the
+  shared directory. Reading a shared file from a guest waits for an
+  Android guest (Milestone 4) — and whether 9p is even the right
+  transport for Android is itself open.
+
+  Clipboard text cannot cross either: QEMU mediates between this
+  process and a guest clipboard agent, and neither this fixture nor a
+  stock Android image runs one.
