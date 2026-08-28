@@ -80,8 +80,45 @@ struct MultiemuApp: App {
                             report("starting \(device.name)…")
                             await device.start()
 
+                            // With --capture-window, wait until the guest is
+                            // actually up before shooting: a screenshot taken
+                            // on a timer catches a black screen and proves
+                            // nothing.
+                            let shot = Self.capturePath
+                            var captured = false
                             var seen = 0
                             for _ in 0..<40 {
+                                if let shot, !captured, device.latestFrame != nil,
+                                   device.statusText.contains("Running") {
+                                    try? await Task.sleep(for: .seconds(20))
+
+                                    // Swipe the keyguard away through the real
+                                    // input path, so the screenshot shows the
+                                    // launcher AND the swipe proves input
+                                    // actually reaches the guest.
+                                    if let input = device.inputClient(),
+                                       let frame = device.latestFrame {
+                                        let width = Double(frame.width), height = Double(frame.height)
+                                        let x = width / 2
+                                        do {
+                                            try await input.touch(.begin, x: x, y: height * 0.8)
+                                            for step in stride(from: 0.8, through: 0.2, by: -0.05) {
+                                                try await input.touch(.update, x: x, y: height * step)
+                                                try? await Task.sleep(for: .milliseconds(16))
+                                            }
+                                            try await input.touch(.end, x: x, y: height * 0.2)
+                                            report("swiped up through the input path")
+                                        } catch {
+                                            report("swipe failed: \(error)")
+                                        }
+                                        try? await Task.sleep(for: .seconds(6))
+                                    }
+
+                                    _ = device.captureScreenshot(to: shot.deletingLastPathComponent())
+                                    WindowCapture.captureFrontmostWindow(to: shot)
+                                    report("captured \(shot.path)")
+                                    captured = true
+                                }
                                 for entry in device.activity.dropFirst(seen) {
                                     report("\(entry.kind.rawValue): \(entry.text)")
                                 }
@@ -95,7 +132,10 @@ struct MultiemuApp: App {
                             }
                         }
                     }
-                    if let path = Self.capturePath { WindowCapture.scheduleCapture(to: path) }
+                    if let path = Self.capturePath,
+                       !CommandLine.arguments.contains("--start-device") {
+                        WindowCapture.scheduleCapture(to: path)
+                    }
                     if let path = Self.overrideRoot(for: "--dump-accessibility") {
                         AccessibilityDump.scheduleDump(to: path)
                     }

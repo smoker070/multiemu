@@ -19,6 +19,9 @@ reports/*.json
 *.png
 *.wav
 
+# …except the screenshots the README points at, which are part of the docs.
+!docs/images/*.png
+
 # Signing material and machine-specific secrets never belong in the repository.
 # See docs/DEPENDENCIES-AND-LICENSING.md §7.
 *.p12
