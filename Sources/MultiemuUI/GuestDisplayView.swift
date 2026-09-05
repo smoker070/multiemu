@@ -42,6 +42,9 @@ public final class GuestDisplayView: NSView {
     /// True between a button press and its release, so a drag that leaves the
     /// image keeps tracking instead of dropping events.
     var isTrackingDrag = false
+    /// Turns host mouse events into guest touches. Stateful: it has to know
+    /// whether a finger is down to tell a drag from a hover.
+    private var pointerTranslator = PointerTouchTranslator()
 
     private var metalLayer: CAMetalLayer {
         // `layer` is the backing layer created below, so this cast is total.
@@ -276,33 +279,36 @@ extension GuestDisplayView {
 
     public override func scrollWheel(with event: NSEvent) {
         let lines = Int(event.scrollingDeltaY.rounded())
-        guard lines != 0 else { return }
-        send { try await $0.scroll(lines: lines) }
+        guard lines != 0, guestResolution.width > 0 else { return }
+        let point = guestPoint(for: event)
+            ?? CGPoint(x: guestResolution.width / 2, y: guestResolution.height / 2)
+        let commands = pointerTranslator.scrolled(
+            lines: lines, at: point, guestSize: guestResolution
+        )
+        send { try await $0.perform(commands) }
     }
 
     private func movePointer(_ event: NSEvent) {
         guard let point = guestPoint(for: event) else { return }
-        send { try await $0.move(to: point) }
+        let commands = pointerTranslator.moved(to: point)
+        send { try await $0.perform(commands) }
     }
 
+    /// A host mouse reaches the guest as a finger, not as a pointer button.
+    /// `PointerTouchTranslator` documents why, with the `getevent` capture that
+    /// showed the button and the position arriving on two different devices.
     private func pressButton(_ button: QEMUPointerButton, _ event: NSEvent) {
         guard let point = guestPoint(for: event) else { return }
         isTrackingDrag = true
-        send { client in
-            // Position first, then the button: a click reported at a stale
-            // position lands in the wrong place in the guest.
-            try await client.move(to: point)
-            try await client.press(button)
-        }
+        let commands = pointerTranslator.pressed(button, at: point)
+        send { try await $0.perform(commands) }
     }
 
     private func releaseButton(_ button: QEMUPointerButton, _ event: NSEvent) {
         let point = guestPoint(for: event)
         isTrackingDrag = false
-        send { client in
-            if let point { try await client.move(to: point) }
-            try await client.release(button)
-        }
+        let commands = pointerTranslator.released(button, at: point)
+        send { try await $0.perform(commands) }
     }
 
     // MARK: Focus
@@ -319,8 +325,16 @@ extension GuestDisplayView {
         // about, and `releaseAll` on the client does not lift them.
         inputRouter?.releaseAll()
         keysClaimedByMapping.removeAll()
+        // A finger is not a button: `releaseAll` lifts the pointer buttons and
+        // keys but leaves a multitouch slot down, which reads in the guest as a
+        // held press that never ends.
+        let cancellation = pointerTranslator.cancelled()
+        isTrackingDrag = false
         guard let client = inputClient else { return }
-        Task { await client.releaseAll() }
+        Task {
+            try? await client.perform(cancellation)
+            await client.releaseAll()
+        }
     }
 
     private func send(_ body: @escaping @Sendable (QEMUInputClient) async throws -> Void) {

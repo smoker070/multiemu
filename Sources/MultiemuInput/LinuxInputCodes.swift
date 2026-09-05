@@ -51,10 +51,21 @@ public enum QEMUPointerButton: UInt32, Sendable, CaseIterable {
 
 /// `org.qemu.Display1.MultiTouch.SendEvent` event kinds.
 ///
-/// Ordinals of QEMU's `InputMultiTouchType` (`qapi/ui.json`).
+/// Ordinals of QEMU's `InputMultiTouchType` (`qapi/ui.json`):
+///
+///     { 'enum'  : 'InputMultiTouchType',
+///       'data'  : [ 'begin', 'update', 'end', 'cancel', 'data' ] }
+///
+/// `end` and `cancel` are the third and fourth, in that order. They were once
+/// transcribed the other way round, and the effect was not an error but a
+/// stuck finger: `qemu_input_touch_event` clears a slot's tracking id only for
+/// `end`, so what we called `end` left the touch down forever. The guest's
+/// `getevent` showed a correct `BTN_TOUCH DOWN` with no `UP` ever following,
+/// after which every later gesture was suppressed as a duplicate and the whole
+/// interface stopped responding to clicks.
 public enum QEMUMultiTouchKind: UInt32, Sendable {
     case begin = 0
     case update = 1
-    case cancel = 2
-    case end = 3
+    case end = 2
+    case cancel = 3
 }

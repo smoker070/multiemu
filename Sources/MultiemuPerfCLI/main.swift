@@ -126,6 +126,15 @@ let runDeadline = RunDeadline(
 deadline = runDeadline
 runDeadline.start()
 
+/// A value written on one thread and read on another.
+final class LockedBox<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
+    init(_ value: Value) { self.value = value }
+    func get() -> Value { lock.lock(); defer { lock.unlock() }; return value }
+    func set(_ newValue: Value) { lock.lock(); value = newValue; lock.unlock() }
+}
+
 // MARK: - Statistics
 
 // Statistics come from `MultiemuSupport.PerformanceStatistics`, which has
@@ -544,6 +553,115 @@ final class WorkloadDriver: @unchecked Sendable {
         thread.stackSize = 512 * 1024
         thread.start()
     }
+}
+
+// --- Input probe: does anything we send reach the guest's input stack? ---
+//
+// `MULTITOUCH-ACCEPTANCE-IS-NOT-EVIDENCE-OF-DELIVERY` in docs/VERIFY.md says
+// QEMU accepts SendEvent whether or not a device exists and never errors, so
+// nothing observed from the host side is proof. This asks Android instead:
+// `getevent` prints every event the guest kernel actually receives.
+if arguments.contains("--input-probe"), let adb {
+    runDeadline.enter("probing input")
+    print("")
+    print("=== input probe ===")
+
+    let probeSize = await frameClock.frameSize ?? CGSize(width: 1920, height: 1080)
+    let console = await input.consoleGeometry()
+    print("frame \(Int(probeSize.width))x\(Int(probeSize.height)); console "
+        + "\(console.map { "\(Int($0.width))x\(Int($0.height))" } ?? "unknown")")
+
+    // The keyguard first. In current Android the lock screen is drawn by the
+    // NotificationShade window, so a probe that skips this taps the lock screen
+    // and reports that nothing happened.
+    _ = try? adb.shell("input keyevent 82")
+    _ = try? adb.shell("wm dismiss-keyguard")
+    try? await Task.sleep(for: .seconds(2))
+    _ = try? adb.shell("input keyevent KEYCODE_HOME")
+    try? await Task.sleep(for: .seconds(3))
+
+    // A real target, from the guest's own view hierarchy, so the tap is aimed
+    // at something that is actually there.
+    _ = try? adb.shell("uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1")
+    let dump = (try? adb.shell("cat /data/local/tmp/ui.xml 2>/dev/null")) ?? ""
+    var iconCentre = CGPoint(x: probeSize.width / 2, y: probeSize.height / 2)
+    var iconLabel = "(screen centre — no node found)"
+    for node in dump.components(separatedBy: "<node").dropFirst() {
+        guard node.contains("clickable=\"true\""),
+              let boundsRange = node.range(of: #"bounds="\[\d+,\d+\]\[\d+,\d+\]""#,
+                                           options: .regularExpression) else { continue }
+        let n = node[boundsRange].split(whereSeparator: { !"0123456789".contains($0) })
+                                 .compactMap { Double($0) }
+        guard n.count == 4, n[2] > n[0], n[3] > n[1],
+              n[2] - n[0] < probeSize.width * 0.6 else { continue }
+        iconCentre = CGPoint(x: (n[0] + n[2]) / 2, y: (n[1] + n[3]) / 2)
+        if let d = node.range(of: #"content-desc="[^"]*""#, options: .regularExpression) {
+            iconLabel = String(node[d])
+        }
+        break
+    }
+    print("target: \(iconLabel) at \(Int(iconCentre.x)),\(Int(iconCentre.y))")
+
+    func focus() -> String {
+        let out = (try? adb.shell("dumpsys window 2>/dev/null | grep -m1 mCurrentFocus")) ?? ""
+        return out.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "mCurrentFocus=Window{", with: "")
+    }
+
+    // Every device at once, so the routing of each half of a gesture is visible
+    // rather than inferred. Bounded by time: a bound in events never returns.
+    let captured = LockedBox<String>("")
+    let listener = Thread {
+        captured.set((try? adb.shell("timeout 40 getevent -lt 2>&1")) ?? "(failed)")
+    }
+    listener.start()
+    try? await Task.sleep(for: .seconds(2))
+
+    let focusBefore = focus()
+
+    // Three taps, not one. QEMU's `end` releases the tracking id but never
+    // sends `BTN_TOUCH` false, so the button stays down in the guest; if
+    // Android needed it, the first tap would work and every later one would be
+    // swallowed as a duplicate. That is a failure a single-tap check cannot see.
+    var translator = PointerTouchTranslator()
+    var focusAfterTouch = focusBefore
+    for attempt in 1...3 {
+        print(">>> TOUCH tap \(attempt)")
+        _ = try? adb.shell("input keyevent KEYCODE_HOME")
+        try? await Task.sleep(for: .seconds(2))
+        let start = focus()
+        do { try await input.perform(translator.pressed(.left, at: iconCentre)) }
+        catch { print("    down refused: \(error)") }
+        try? await Task.sleep(for: .milliseconds(120))
+        do { try await input.perform(translator.released(.left, at: iconCentre)) }
+        catch { print("    up refused: \(error)") }
+        try? await Task.sleep(for: .seconds(3))
+        focusAfterTouch = focus()
+        print("    tap \(attempt): \(focusAfterTouch == start ? "NO REACTION" : "reacted") -> \(focusAfterTouch)")
+    }
+    _ = try? adb.shell("input keyevent KEYCODE_HOME")
+    try? await Task.sleep(for: .seconds(2))
+
+    print(">>> POINTER tap")
+    try? await input.moveAbsolute(to: iconCentre)
+    try? await Task.sleep(for: .milliseconds(60))
+    try? await input.press(QEMUPointerButton.left)
+    try? await Task.sleep(for: .milliseconds(120))
+    try? await input.release(QEMUPointerButton.left)
+    try? await Task.sleep(for: .seconds(3))
+    let focusAfterPointer = focus()
+
+    for _ in 0..<45 where !listener.isFinished { try? await Task.sleep(for: .seconds(1)) }
+    print("full event trace:")
+    for line in captured.get().split(separator: "\n") where !line.contains("add device")
+                                                          && !line.contains("name:") {
+        print("    \(line)")
+    }
+    print("focus before:        \(focusBefore)")
+    print("focus after TOUCH:   \(focusAfterTouch)  \(focusAfterTouch == focusBefore ? "SAME" : "CHANGED")")
+    print("focus after POINTER: \(focusAfterPointer)  \(focusAfterPointer == focusAfterTouch ? "SAME" : "CHANGED")")
+    print("=== end input probe ===")
+    print("")
 }
 
 // The mode the guest actually chose, learned from a frame rather than asked of

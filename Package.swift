@@ -109,7 +109,8 @@ let package = Package(
         .executableTarget(
             name: "MultiemuApp",
             dependencies: ["MultiemuSupport", "MultiemuGraphics", "MultiemuUI",
-                           "MultiemuViewModels", "MultiemuConfiguration", "MultiemuImages"],
+                           "MultiemuViewModels", "MultiemuConfiguration", "MultiemuImages",
+                           "MultiemuInput"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .target(

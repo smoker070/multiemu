@@ -19,7 +19,7 @@ usable, and it is not finished. What that means concretely:
 | | |
 | --- | --- |
 | **Boots Android** | ✅ 3.7 s cold boot; first boot of a new device takes a few minutes for `dex2oat` |
-| **Screen, mouse, keyboard** | ✅ Metal-rendered, absolute pointer, key codes verified inside the guest |
+| **Screen, mouse, keyboard** | ✅ Metal-rendered; the mouse is delivered to the guest as a finger, verified by opening an app from a tap |
 | **ADB** | ✅ a first-party client, implemented here — Google's `adb` is not redistributable |
 | **Install APKs** | ✅ drag one onto the window, or `Device ▸ Install APK…` |
 | **Move files** | ✅ both directions, byte-exact, over the ADB sync protocol |
