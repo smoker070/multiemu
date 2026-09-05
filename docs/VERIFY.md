@@ -9,6 +9,270 @@ build 25F84, 16 GiB, Xcode 26.6 / Swift 6.3.3.**
 
 ---
 
+## Orphaned backends — 2026-09-05
+
+### `THE-APP-ORPHANS-ITS-OWN-BACKEND` — DEFECT FOUND AND FIXED 2026-09-05
+
+**Symptom, as reported:** a device would not start. The app showed
+
+```
+The backend process ended by exit with code 1 while the guest was booting.
+qemu-system-aarch64: -drive file=…/composite.qcow2,…: Failed to get "write" lock |
+Is another process using the image …? |
+Guest console port 18 (sensors) never connected at …; a HAL waiting on it will block the boot.
+```
+
+**Measured cause.** `ps` found `qemu-system-aarch64` **pid 9510, PPID 1,
+elapsed 01-20:05:55** — an orphan reparented to launchd, still holding the
+device's disk 44 hours after the app that spawned it had died. `lsof` confirmed
+it held `composite.qcow2` on FD 15u. `qemu-img check` after a graceful `SIGTERM`
+reported **"No errors were found on the image"**; nothing was lost, but the
+device had been unstartable the whole time and nobody could see why.
+
+Three separate defects made one leftover process this expensive.
+
+#### 1. Nothing tied the child's life to the app's
+
+`Process` spawns QEMU with `posix_spawn`, and macOS has no `PR_SET_PDEATHSIG`:
+the child is reparented to launchd when the parent dies. A repository-wide grep
+for `atexit|SIGTERM|signal(|applicationWillTerminate|NSApplicationDelegate`
+returned two hits, **both comments**. The project had already reasoned this out
+for its harnesses — `RunDeadline.killGuest` says "an early `exit()` from the
+harness leaves QEMU orphaned and still spinning its vCPUs", and every spike and
+shell script cleans up after itself — so the application, the one binary users
+run, was the only thing in the repository without it.
+
+Fixed by `OrphanReaper` (`Sources/MultiemuQEMU/`), adopted in
+`QEMUProcess.start()` and released in the termination handler *before* the exit
+event is published, so a recycled pid can never be signalled. Plus an
+`AppDelegate.applicationShouldTerminate` that stops running devices gracefully
+within a 6 s budget, so a normal quit flushes the guest rather than pulling the
+plug.
+
+**Verified with a counterfactual**, because the first attempt at this proved
+nothing: driving `multiemu-perf` showed the child dying whether or not the
+reaper was enabled — that harness has its own cleanup, which masked the effect
+entirely. An isolated scratch executable spawning `/bin/sleep` through
+`QEMUProcess` (`sleep` never writes to stdout, so a child cannot die merely
+because the parent's pipe closed) separated them:
+
+| Parent ends by | Adopted | Child |
+| --- | --- | --- |
+| `SIGTERM` | yes | reaped |
+| `SIGTERM` | no | **survived, ppid 1** |
+| `exit(0)` | yes | reaped |
+| `exit(0)` | no | **survived, ppid 1** |
+
+Both failing rows reproduce the field symptom exactly. `SIGKILL` of the app
+remains uncoverable — nothing can run in-process — which is what the next
+defect is for.
+
+#### 2. Preflight checked that images were readable, never that they were free
+
+`EmulatorSession.preflight()` tested memory, storage, vCPUs, `isReadableFile`
+and host-port claims. A qcow2 held by another QEMU is perfectly readable, so the
+orphan case passed **every** check and the failure became raw engine stderr.
+
+Fixed by `DiskImageLock` (`Sources/MultiemuBackend/`), which runs QEMU's own
+test against QEMU's own bytes: `block/file-posix.c` locks
+`RAW_LOCK_PERM_BASE + i` (100) and `RAW_LOCK_SHARED_BASE + i` (200), and
+`BLK_PERM_WRITE` is `0x02`, so `i == 1` and the bytes are **101 and 201**;
+`qemu_lock_fd_test` (`util/osdep.c`) probes them with `F_OFD_GETLK`.
+
+Instrument chosen against the alternatives: `lsof` answers "has this open", not
+"holds the write lock", so it false-positives on any reader and costs a ~105 ms
+subprocess per start; a pid file false-negatives after a crash and
+false-positives after pid reuse. The `fcntl` probe is true exactly when QEMU
+would refuse, takes no lock, and needs no subprocess.
+
+**Verified against a live QEMU on macOS 26.5**, not by reasoning:
+
+| State | Byte 101 | Byte 201 | Second QEMU |
+| --- | --- | --- | --- |
+| before the holder starts | FREE | FREE | — |
+| while it runs | HELD | HELD | fails with the exact user-visible error |
+| after it exits | FREE | FREE | — |
+
+Darwin reports `l_pid == -1` for an OFD lock — it belongs to an open file
+description, not a process — so the syscall that *detects* the conflict cannot
+name it. `lsof` runs only on the already-failing path, purely to label the
+holder. **Detection and attribution are deliberately separate.**
+
+#### 3. The message presented a symptom as a second cause
+
+The sensors line was noise. `GuestConsoleResponder.connect` returns `nil` both
+when its deadline expires **and** when `stop()` clears `isRunning` underneath
+it, and the two were indistinguishable — so every backend that exited early
+manufactured "port never connected" during its own teardown. The text then
+blamed a guest HAL for something the host had done, about a QEMU that never
+opened its disk.
+
+Compounding it, `handleExit` joined `backendMessages.suffix(3)` with `" | "`.
+`suffix` keeps the *newest*, and QEMU prints its diagnosis first — so a backend
+that printed two warnings before its fatal error would have had the fatal error
+evicted from its own failure report.
+
+Fixed in three places: the responder reports only genuine timeouts;
+`noteConsoleHealth` drops `.couldNotConnect` when the backend is already gone;
+and `handleExit` names `backendMessages.first` as the cause, distinguishes
+"ended before the guest began running" from a guest that died, and recognises
+the write-lock case by name to suggest the remedy.
+
+**Regression tests.** 9 new (7 for `DiskImageLock`, 2 for the preflight wiring)
+plus one for the responder. Each was checked to fail against the unfixed code —
+the responder test reports `Expectation failed: (reported.first →
+.couldNotConnect(…)) == nil` when the guard is removed — and the preflight pair
+includes an unlocked-disk control, without which a probe that always claimed a
+conflict would block every start and still pass. Full suite: **566 tests, five
+consecutive clean runs.**
+
+*Honest note:* one full-suite run failed with a single unattributed issue before
+these tests were added. It has not recurred in eight subsequent runs and its
+identity was not captured, so it is recorded here rather than dismissed.
+
+### `A-FORCE-QUIT-NO-LONGER-WEDGES-A-DEVICE` — CONFIRMED 2026-09-05
+
+Completes `THE-APP-ORPHANS-ITS-OWN-BACKEND`. That entry closed every exit that
+still runs our code and said plainly that `SIGKILL` "remains uncoverable —
+nothing can run in-process". True, and not good enough: a force-quit, a panic
+or a power cut still left a QEMU holding the device's disk, and the user still
+had to find it with `lsof`. What cannot be *prevented* is now *recovered*.
+
+**`BackendRunRecord`** (`Sources/MultiemuBackend/`) is written beside the disk
+when a backend starts and removed when it exits. On the next launch the session
+reclaims what it can prove is its own.
+
+**Proving it is ours is the whole problem.** Killing by a pid from a file is
+how unrelated processes get killed: pids are recycled, and `kill(pid, 0)` only
+says *something* is alive. The record therefore stores the kernel's
+`kp_proc.p_starttime` (`KERN_PROC_PID`) — microsecond precision, so a recycled
+pid cannot match — plus `p_comm`, and every gate must pass before anything is
+signalled. A record that fails any gate is deleted, never acted on.
+
+**Verified against a real QEMU**, not a mock:
+
+| Step | Observed |
+| --- | --- |
+| Start a session, `SIGKILL` it | `qemu-system-aarch64` survives with **ppid 1** — the wedge, reproduced |
+| Record left behind | `{processIdentifier: 12762, processName: "qemu-system-aarc"}` |
+| Launch again on the same disk | **orphan 12762 RECLAIMED, new backend 13318 running** |
+
+Note `qemu-system-aarc`: `p_comm` is truncated to `MAXCOMLEN` (16).
+
+#### Two defects found by testing, both of which would have shipped
+
+**1. The recorded name was inferred, not observed.** The first version derived
+the expected `p_comm` from the launch path. `p_comm` names what is *actually
+running*: `/usr/bin/python3` re-execs as `Python`, and long names truncate. The
+record now stores what the kernel reported at launch and compares it exactly.
+
+**2. Preflight refused what `start()` was about to fix.** The reclaim was placed
+in `start()`, but `multiemu-session` calls `preflight()` as a separate step
+first — so against a real orphan it refused with "already open for writing"
+and never reclaimed anything. Caught only because the check was run against a
+genuine wedged QEMU rather than a mock. A reclaimable leftover is now a
+**warning**, not an error; preflight stays side-effect free and `start()`
+remains the only thing that signals a process. A control test keeps a disk held
+by an *unrelated* process a hard refusal.
+
+**3. The failure message invented a program name.** `holderDescription` read
+`ps -o comm=`, which truncates to 16 characters — a process under
+`/Applications/Xcode.app` came back as `/Applications/Xc`, whose last path
+component is `Xc`, so the app told the user their disk was held by a program
+called **"Xc"**. The name now comes from the kernel; only `etime` is read from
+`ps`. A regression test asserts no `/` ever appears in the holder string.
+
+**Tests.** 20 new (13 record, 7 lock) plus 4 lifecycle. The safety cases are the
+point: a stale record must not signal the process that now owns that pid, a
+record must never name this process, and a garbage record must be discarded
+rather than retried. The end-to-end lifecycle test was confirmed to fail with
+the reclaim disabled. Full suite: **570 + 31 tests, three consecutive clean
+runs.**
+
+## Guest input — 2026-09-02
+
+### `TOUCH-END-AND-CANCEL-WERE-SWAPPED` — DEFECT FOUND AND FIXED 2026-09-02
+
+**Symptom, as reported:** Android boots to the launcher and nothing responds.
+No icon opens, no key does anything, the mouse does nothing at all.
+
+**Two wrong diagnoses came first**, both of which looked convincing from outside
+the guest and are recorded here because they cost the most time:
+
+1. *Pointer versus touch semantics.* A speculative change was made to
+   `GuestDisplayView` and reverted; no measurement supported it.
+2. *Coordinate scaling.* A probe sent 480, 960 and 1920 on a 1920 frame and read
+   back `0x1fff`, `0x3fff`, `0x7fff`. Read against an assumed 14-bit axis this
+   says every coordinate is twice too large. The axis is 15-bit
+   (`INPUT_EVENT_ABS_MAX` is `0x7fff`), so `480 → 0x1fff` is 25% of the axis for
+   25% of the frame — exactly linear, and nothing was wrong.
+
+**What actually settled it** was running `getevent -lt` across *every* device in
+the guest while sending one tap. A correct press arrived and no release ever
+followed:
+
+```
+event3: EV_ABS  ABS_MT_TRACKING_ID  00000000
+event3: EV_KEY  BTN_TOUCH           DOWN
+event3: EV_ABS  ABS_MT_POSITION_X   00003fff
+event3: EV_ABS  ABS_MT_POSITION_Y   00007a76
+event3: EV_SYN  SYN_REPORT
+                                    (nothing — the finger never lifts)
+```
+
+**Cause.** `QEMUMultiTouchKind` transcribed QEMU's `InputMultiTouchType`
+ordinals in the wrong order. `qapi/ui.json` declares
+
+```
+{ 'enum'  : 'InputMultiTouchType',
+  'data'  : [ 'begin', 'update', 'end', 'cancel', 'data' ] }
+```
+
+so `end` is 2 and `cancel` is 3; the enum had them the other way round. Nothing
+rejects this — `dbus_touch_send_event` accepts all four kinds — but
+`qemu_input_touch_event` (`ui/input.c`) clears a slot's tracking id **only** for
+`end`. Every release we sent was a cancel, so the finger stayed down forever.
+The next gesture's `begin` then set a tracking id that was already 0 and a
+`BTN_TOUCH` that was already down, both suppressed by the guest's input core as
+unchanged, which is why later probes saw bare position updates with no contact
+and why the interface was completely dead rather than intermittently wrong.
+
+**Second defect, found in the same trace.** The pointer path is split across two
+devices. QEMU routes `ABS` and `BTN` events independently by handler mask, and
+with both a virtio tablet and a virtio multitouch device attached the position
+goes to one and the button to the other:
+
+```
+event2: EV_ABS  ABS_X      00001bff     (tablet)
+event3: EV_KEY  BTN_MOUSE  DOWN         (multitouch)
+```
+
+Android keys pointer state to the device a button arrives on, so it sees a
+button with no position and a position with no button. A pointer tap on an app
+icon changed nothing in three separate runs. Mouse events are therefore
+translated into touches by `PointerTouchTranslator`, which is also the right
+model for Android regardless of the routing bug.
+
+**Verified.** With the ordinals corrected, three consecutive taps aimed at a
+target read out of the guest's own `uiautomator` dump, sent through the shipped
+path (`PointerTouchTranslator` into `QEMUInputClient.perform`):
+
+| Tap | Focused window afterwards |
+| --- | --- |
+| 1 | `com.android.calendar/com.android.calendar.AllInOneActivity` |
+| 2 | `com.android.calendar/com.android.calendar.AllInOneActivity` |
+| 3 | `com.android.calendar/com.android.calendar.AllInOneActivity` |
+
+Three, not one, because QEMU's `end` releases the tracking id but never sends
+`BTN_TOUCH` false. The button stays down in the guest and is suppressed as a
+duplicate on every later press; if Android needed it, the first tap would work
+and every subsequent one would fail. It does not, and they do not.
+
+*Method note:* an earlier version of this check compared `screencap | md5sum`
+before and after. That is not a reliable detector — the launcher clock changes
+the hash on its own — and it produced one "changed" result that meant nothing.
+The focused window from `dumpsys window` is what the table above uses.
+
 ## Milestones 8, 10, 11 and 14 — 2026-08-25
 
 ### `ADB-CHECKSUM-IS-ZERO` — CONFIRMED 2026-08-25

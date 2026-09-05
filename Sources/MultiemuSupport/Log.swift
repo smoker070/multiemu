@@ -56,4 +56,5 @@ public enum MultiemuLog {
     public static var snapshot: Logger { logger(.snapshot) }
     public static var diagnostics: Logger { logger(.diagnostics) }
     public static var performance: Logger { logger(.performance) }
+    public static var ui: Logger { logger(.ui) }
 }

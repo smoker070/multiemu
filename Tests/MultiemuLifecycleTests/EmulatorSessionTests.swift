@@ -124,6 +124,7 @@ struct EmulatorSessionTests {
         host: HostCapabilities = .makeFixture(),
         memoryBytes: UInt64 = 4 * ByteCount.giB,
         kernel: URL?,
+        disks: [GuestDiskImage] = [],
         box: BackendBox = BackendBox()
     ) -> (EmulatorSession, BackendBox) {
         let request = GuestStartRequest(
@@ -131,6 +132,7 @@ struct EmulatorSessionTests {
             acceleration: .hardwareVirtualization,
             resources: .init(memoryBytes: memoryBytes, storageBytes: 32 * ByteCount.giB, vcpuCount: 4),
             kernelURL: kernel,
+            disks: disks,
             bootTimeout: .seconds(5)
         )
         let session = EmulatorSession(
@@ -192,6 +194,220 @@ struct EmulatorSessionTests {
 
         await #expect(throws: (any Error).self) { try await session.start() }
         #expect(box.creationCount == 0)
+    }
+
+    @Test("Preflight refuses a disk another process is already writing")
+    func preflightDetectsALockedDisk() async throws {
+        // Found in the field, not in review. A QEMU orphaned by a dead app held
+        // a device's composite.qcow2 for 44 hours; preflight only checked that
+        // the file was READABLE, which a locked image is, so the app launched a
+        // backend that died on the write lock and handed the user raw engine
+        // stderr naming no process. The condition was knowable one syscall
+        // before the launch.
+        let disk = temporaryFile()
+        try Data(count: 4096).write(to: disk)
+
+        // Take the byte QEMU takes: block/file-posix.c locks
+        // RAW_LOCK_PERM_BASE + i, and BLK_PERM_WRITE is 1 << 1.
+        let descriptor = open(disk.path, O_RDWR)
+        #expect(descriptor >= 0)
+        defer { close(descriptor) }
+        var lock = flock()
+        lock.l_whence = Int16(SEEK_SET)
+        lock.l_start = 101
+        lock.l_len = 1
+        lock.l_type = Int16(F_WRLCK)
+        #expect(fcntl(descriptor, F_OFD_SETLK, &lock) == 0)
+
+        let (session, box) = makeSession(
+            kernel: temporaryFile(),
+            disks: [GuestDiskImage(url: disk, format: .qcow2, isReadOnly: false)]
+        )
+        let checks = await session.preflight()
+        #expect(!checks.isAllowed)
+        #expect(checks.errors.contains { $0.remediation.contains(disk.lastPathComponent) },
+                "the message must name the disk that is held")
+
+        // The point of preflighting is that nothing is spawned.
+        await #expect(throws: (any Error).self) { try await session.start() }
+        #expect(box.creationCount == 0)
+    }
+
+    @Test("Preflight allows a disk nobody is writing")
+    func preflightAllowsAnUnlockedDisk() async throws {
+        // The control. Without it the check above would still pass if the probe
+        // simply always reported a conflict, which would block every start.
+        let disk = temporaryFile()
+        try Data(count: 4096).write(to: disk)
+        let (session, _) = makeSession(
+            kernel: temporaryFile(),
+            disks: [GuestDiskImage(url: disk, format: .qcow2, isReadOnly: false)]
+        )
+        #expect(await session.preflight().isAllowed)
+    }
+
+    @Test("A reclaimable leftover is a warning, not a refusal")
+    func preflightTreatsOurOwnLeftoverAsRecoverable() async throws {
+        // Preflight must not refuse something `start()` is about to fix. The
+        // session CLI runs preflight as a separate step before starting, so an
+        // error here left the device wedged for exactly the case the reclaim
+        // exists to repair — proved against a real QEMU orphan, which refused
+        // with "already open for writing" instead of recovering.
+        let disk = temporaryFile()
+        try Data(count: 4096).write(to: disk)
+
+        let holder = Process()
+        holder.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        holder.arguments = ["-c", """
+            import fcntl, struct, sys, time
+            f = open(sys.argv[1], 'r+b')
+            fcntl.fcntl(f, 90, struct.pack('qqihh', 101, 1, 0, 3, 0))
+            sys.stdout.write('locked\\n'); sys.stdout.flush()
+            time.sleep(600)
+            """, disk.path]
+        let ready = Pipe()
+        holder.standardOutput = ready
+        try holder.run()
+        defer { if holder.isRunning { kill(holder.processIdentifier, SIGKILL) } }
+        try #require(String(data: ready.fileHandleForReading.availableData, encoding: .utf8)?
+            .contains("locked") == true)
+
+        let live = try #require(BackendRunRecord.liveProcess(holder.processIdentifier))
+        BackendRunRecord.write(
+            .init(processIdentifier: holder.processIdentifier,
+                  startedAtSeconds: live.seconds,
+                  startedAtMicroseconds: live.microseconds,
+                  executablePath: "/usr/bin/python3",
+                  processName: live.name),
+            besideDisk: disk)
+
+        let (session, _) = makeSession(
+            kernel: temporaryFile(),
+            disks: [GuestDiskImage(url: disk, format: .qcow2, isReadOnly: false)]
+        )
+        let checks = await session.preflight()
+        #expect(checks.isAllowed, "our own leftover must not block the start")
+        #expect(checks.warnings.contains { $0.contains("earlier session") },
+                "the user should still be told it will be stopped")
+        // And preflight itself must signal nothing — only `start()` may.
+        #expect(holder.isRunning, "preflight must stay side-effect free")
+    }
+
+    @Test("A disk held by something that is not ours still refuses")
+    func preflightStillRefusesAnUnrelatedHolder() async throws {
+        // The control for the warning above: without a run record proving the
+        // holder is ours, a held disk must remain a hard refusal — otherwise
+        // the warning path would wave through every locked image.
+        let disk = temporaryFile()
+        try Data(count: 4096).write(to: disk)
+        let descriptor = open(disk.path, O_RDWR)
+        defer { close(descriptor) }
+        var lock = flock()
+        lock.l_whence = Int16(SEEK_SET)
+        lock.l_start = 101
+        lock.l_len = 1
+        lock.l_type = Int16(F_WRLCK)
+        #expect(fcntl(descriptor, F_OFD_SETLK, &lock) == 0)
+
+        let (session, _) = makeSession(
+            kernel: temporaryFile(),
+            disks: [GuestDiskImage(url: disk, format: .qcow2, isReadOnly: false)]
+        )
+        let checks = await session.preflight()
+        #expect(!checks.isAllowed, "a disk held by an unknown process must still refuse")
+    }
+
+    @Test("A device left wedged by a crashed session starts anyway")
+    func startReclaimsALeftoverBackend() async throws {
+        // The field failure, end to end. A Multiemu that is SIGKILLed — force
+        // quit, a panic, a power cut — runs none of its own cleanup, so its
+        // QEMU survives holding the device's qcow2 write lock and the device
+        // becomes unstartable. `OrphanReaper` cannot help here by definition;
+        // recovery on the next launch is the only thing that can.
+        let disk = temporaryFile()
+        try Data(count: 4096).write(to: disk)
+
+        // A stand-in for the orphan: a process that really holds QEMU's write
+        // byte and really releases it when it dies, so the recovery is proved
+        // rather than assumed.
+        let holder = Process()
+        holder.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        holder.arguments = ["-c", """
+            import fcntl, struct, sys, time
+            f = open(sys.argv[1], 'r+b')
+            # struct flock on Darwin: off_t l_start, off_t l_len, pid_t l_pid,
+            # short l_type, short l_whence. F_OFD_SETLK is 90 (92 only queries)
+            # and F_WRLCK is 3 on Darwin, where Linux numbers it 1.
+            fcntl.fcntl(f, 90, struct.pack('qqihh', 101, 1, 0, 3, 0))
+            sys.stdout.write('locked\\n'); sys.stdout.flush()
+            time.sleep(600)
+            """, disk.path]
+        let ready = Pipe()
+        holder.standardOutput = ready
+        try holder.run()
+        defer { if holder.isRunning { kill(holder.processIdentifier, SIGKILL) } }
+
+        // Wait for it to confirm the lock is actually held.
+        let handshake = ready.fileHandleForReading.availableData
+        try #require(String(data: handshake, encoding: .utf8)?.contains("locked") == true,
+                     "the stand-in never reported taking the lock")
+        #expect(DiskImageLock.hasWriter(at: disk), "precondition: the disk is wedged")
+
+        // The note the crashed session left behind.
+        let live = try #require(BackendRunRecord.liveProcess(holder.processIdentifier))
+        BackendRunRecord.write(
+            .init(processIdentifier: holder.processIdentifier,
+                  startedAtSeconds: live.seconds,
+                  startedAtMicroseconds: live.microseconds,
+                  executablePath: "/usr/bin/python3",
+                  processName: live.name),
+            besideDisk: disk)
+
+        let (session, box) = makeSession(
+            kernel: temporaryFile(),
+            disks: [GuestDiskImage(url: disk, format: .qcow2, isReadOnly: false)]
+        )
+        try await session.start()
+
+        // The decisive part: it started, which means the leftover was cleared
+        // and the disk was free by the time preflight looked at it.
+        #expect(box.creationCount == 1)
+        #expect(!holder.isRunning, "the leftover backend should have been stopped")
+        #expect(!DiskImageLock.hasWriter(at: disk), "the disk should be free again")
+        #expect(BackendRunRecord.read(besideDisk: disk) == nil,
+                "the spent record must not be left for the next launch")
+    }
+
+    @Test("A start does not touch a process a stale record misnames")
+    func startRefusesToActOnAStaleRecord() async throws {
+        // Pids get recycled. A record left by a long-dead backend can name a
+        // pid that now belongs to something of the user's, and killing it would
+        // be far worse than the wedge being fixed.
+        let disk = temporaryFile()
+        try Data(count: 4096).write(to: disk)
+
+        let innocent = Process()
+        innocent.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        innocent.arguments = ["600"]
+        try innocent.run()
+        defer { if innocent.isRunning { kill(innocent.processIdentifier, SIGKILL) } }
+
+        let live = try #require(BackendRunRecord.liveProcess(innocent.processIdentifier))
+        BackendRunRecord.write(
+            .init(processIdentifier: innocent.processIdentifier,
+                  // Same pid, different start time — precisely pid reuse.
+                  startedAtSeconds: live.seconds - 500,
+                  startedAtMicroseconds: live.microseconds,
+                  executablePath: "/bin/sleep",
+                  processName: live.name),
+            besideDisk: disk)
+
+        let (session, _) = makeSession(
+            kernel: temporaryFile(),
+            disks: [GuestDiskImage(url: disk, format: .qcow2, isReadOnly: false)]
+        )
+        try await session.start()
+        #expect(innocent.isRunning, "an unrelated process must never be signalled")
     }
 
     @Test("Preflight warnings are surfaced but do not block a start")

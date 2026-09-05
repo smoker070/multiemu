@@ -35,6 +35,9 @@ public actor QEMUBackend: EmulatorBackend {
     /// Distinguishes "we asked it to stop" from "it died", which is the whole
     /// difference between a clean shutdown and a crash report.
     private var stopWasRequested = false
+    /// The disk whose `backend-run.json` this backend owns, remembered so every
+    /// exit path can clear it — `handleExit` never sees the start request.
+    private var runRecordDisk: URL?
     private var launchedAt: ContinuousClock.Instant?
     private var supervisionTasks: [Task<Void, Never>] = []
     /// Block nodes a snapshot may address: writable qcow2 only. Read-only and
@@ -159,6 +162,25 @@ public actor QEMUBackend: EmulatorBackend {
             throw error
         }
 
+        // A note naming this process, so a launch after a crash can recognise
+        // its own leftover backend instead of leaving it to hold the disk. See
+        // `BackendRunRecord`. Written after the launch succeeds, because a
+        // process that never started has nothing to reclaim.
+        runRecordDisk = request.disks.first(where: { !$0.isReadOnly })?.url
+        if let disk = runRecordDisk,
+           let live = BackendRunRecord.liveProcess(qemu.processIdentifier) {
+            BackendRunRecord.write(
+                .init(
+                    processIdentifier: qemu.processIdentifier,
+                    startedAtSeconds: live.seconds,
+                    startedAtMicroseconds: live.microseconds,
+                    executablePath: executableURL.path,
+                    processName: live.name
+                ),
+                besideDisk: disk
+            )
+        }
+
         // Started after QEMU, because they connect to sockets it listens on.
         // A guest whose sensors HAL goes unanswered never reaches
         // sys.boot_completed, so a failure here is reported rather than
@@ -216,8 +238,17 @@ public actor QEMUBackend: EmulatorBackend {
         case .serving:
             return
         case let .couldNotConnect(path):
+            // A dead backend is the reason nothing connected, not a second
+            // problem to report. Without this guard the failure detail carries
+            // a sentence about a sensors HAL for a QEMU that never opened its
+            // disk image, sending the reader after a guest that never existed.
+            guard process?.isRunning == true, currentState.failure == nil else {
+                MultiemuLog.backend.debug(
+                    "Console port \(port, privacy: .public) did not connect, but the backend is already gone")
+                return
+            }
             handleBackendMessage(
-                "Guest console port \(port) (\(service)) never connected at \(path); "
+                "The host could not attach to guest console port \(port) (\(service)) at \(path); "
                 + "a HAL waiting on it will block the boot.")
         case let .gaveUp(faults):
             handleBackendMessage(
@@ -486,6 +517,11 @@ public actor QEMUBackend: EmulatorBackend {
     }
 
     private func handleExit(code: Int32, reason: String) async {
+        // The backend is gone, so its run record must not outlive it: a stale
+        // record naming a recycled pid is exactly what the identity checks in
+        // `BackendRunRecord` exist to refuse, and leaving one behind would make
+        // every later launch do that work for nothing.
+        if let disk = runRecordDisk { BackendRunRecord.clear(besideDisk: disk) }
         bootWatchdog?.cancel()
         await controlChannel?.disconnect()
         removeControlSocket()
@@ -503,14 +539,43 @@ public actor QEMUBackend: EmulatorBackend {
             return
         }
 
+        // A QEMU that dies during its own startup and a guest that panics after
+        // five minutes are different failures and deserve different sentences.
+        // The state is flipped to `.booting` before supervision even begins, so
+        // it cannot be used to tell them apart; whether anything was ever heard
+        // from the guest can.
+        let guestEverRan = !console.isEmpty || !bootProbe.milestones.isEmpty
+
+        // `.first`, not `.suffix`. QEMU prints its diagnosis first and the
+        // consequences after, so keeping the newest lines is exactly backwards:
+        // a backend that printed two warnings before its fatal error would have
+        // had the fatal error evicted from its own failure report.
+        var lines: [String] = [
+            guestEverRan
+                ? "The backend process ended by \(reason) with code \(code) while the guest was "
+                    + "\(currentState.displayName.lowercased())."
+                : "The emulator process ended by \(reason) with code \(code) before the guest began "
+                    + "running, so nothing about the Android image is implicated."
+        ]
+        if let cause = backendMessages.first {
+            lines.append("Cause: \(cause)")
+            // The one failure common enough to be worth recognising by name:
+            // a leftover backend from a session that did not shut down cleanly.
+            if cause.contains("Failed to get \"write\" lock") {
+                lines.append(
+                    "Another process still holds this device's disk. It is usually a Multiemu "
+                    + "backend left behind by an earlier session; quitting it releases the disk.")
+            }
+        }
+        let rest = backendMessages.dropFirst().prefix(4)
+        if !rest.isEmpty { lines.append("Also reported: " + rest.joined(separator: "; ")) }
+
         fail(.init(
             kind: .backendTerminatedUnexpectedly,
-            summary: "The emulator backend stopped unexpectedly.",
-            detail: """
-                The backend process ended by \(reason) with code \(code) while the guest was \
-                \(currentState.displayName.lowercased()). \
-                \(backendMessages.suffix(3).joined(separator: " | "))
-                """,
+            summary: guestEverRan
+                ? "The emulator backend stopped unexpectedly."
+                : "The emulator could not start.",
+            detail: lines.joined(separator: "\n"),
             backendExitCode: code,
             consoleTail: recentConsole(limit: 40),
             lastBootMilestone: bootProbe.milestones.last?.kind

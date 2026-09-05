@@ -84,6 +84,32 @@ public actor EmulatorSession {
     /// `VZVirtualMachineConfiguration.validate()` succeeds for a kernel URL that
     /// does not exist. A missing image must fail as a missing image, not as an
     /// unexplained boot timeout two minutes later.
+    /// Stops any backend this device left behind, and says so.
+    private func reclaimLeftoverBackends() async {
+        for disk in configuration.startRequest.disks where !disk.isReadOnly {
+            switch await BackendRunRecord.reclaim(besideDisk: disk.url) {
+            case .nothingToReclaim:
+                continue
+            case .refusedToActOnAStaleRecord:
+                // The pid in the record now belongs to something else, so
+                // nothing was signalled. Preflight still refuses if the disk is
+                // genuinely held, naming the holder via `lsof`.
+                MultiemuLog.lifecycle.notice(
+                    "Ignored a stale backend run record for \(self.configuration.deviceName, privacy: .public)")
+            case let .stoppedGracefully(pid), let .killed(pid):
+                eventContinuation.yield(.preflightWarning(
+                    """
+                    Recovered a backend left running by an earlier session \
+                    (process \(pid)) and released this device's disk.
+                    """
+                ))
+            case let .couldNotStop(pid):
+                MultiemuLog.lifecycle.error(
+                    "Could not stop leftover backend \(pid, privacy: .public)")
+            }
+        }
+    }
+
     public func preflight() async -> ResourceValidationResult {
         let committed = await committedResources()
         var result = ResourceValidator.validate(
@@ -102,6 +128,43 @@ public actor EmulatorSession {
         require(configuration.startRequest.kernelURL, "kernel")
         require(configuration.startRequest.initialRamdiskURL, "initial ramdisk")
         for disk in configuration.startRequest.disks { require(disk.url, "disk image") }
+
+        // Readable is not the same as available. A qcow2 held by another QEMU
+        // is perfectly readable, so every check above passes and the backend is
+        // spawned only to die on the write lock, handing the user raw engine
+        // stderr about a process it cannot name. Ask first — it is one syscall,
+        // and it is the same test QEMU would apply a moment later.
+        for disk in configuration.startRequest.disks where !disk.isReadOnly {
+            guard DiskImageLock.hasWriter(at: disk.url) else { continue }
+
+            // A leftover of our own is not a reason to refuse — `start()`
+            // reclaims it before it gets this far. Reporting it as an error
+            // would block every caller that preflights separately before
+            // starting (the session CLI does exactly that), leaving the device
+            // wedged for precisely the case the reclaim exists to fix.
+            // Preflight stays side-effect free: it says what will happen, and
+            // `start()` remains the only thing that ever signals a process.
+            if BackendRunRecord.read(besideDisk: disk.url)?.namesALiveBackend == true {
+                result.warnings.append("""
+                    A backend left running by an earlier session is holding \
+                    \(disk.url.lastPathComponent). Starting this device will stop it first.
+                    """)
+                continue
+            }
+
+            let holder = DiskImageLock.holderDescription(of: disk.url)
+                .map { "It is held by \($0)." }
+                ?? "The process holding it could not be identified."
+            result.errors.append(.invalidConfiguration(
+                field: "Disk image",
+                detail: """
+                    \(disk.url.lastPathComponent) is already open for writing by another process, \
+                    so this device cannot start. \(holder) \
+                    This is usually a backend left behind by an earlier Multiemu session that did \
+                    not shut down cleanly — quitting that process releases the disk.
+                    """
+            ))
+        }
 
         // The ADB port becomes a real host forward inside the backend, so it
         // has to be checked alongside the configured ones or two devices can
@@ -146,6 +209,21 @@ public actor EmulatorSession {
         // concurrent `start()` calls both pass the guard and spawn a backend
         // each, orphaning one of them.
         apply(state: .starting)
+
+        // Before checking anything, clear this device's own leftovers.
+        //
+        // `OrphanReaper` handles every exit that still runs our code; a
+        // `SIGKILL`, a panic or a power cut runs none, and what survives is a
+        // QEMU holding this device's qcow2 write lock. Without this the device
+        // is simply unstartable until a human finds the process — one was
+        // measured at 44 hours. The user has just asked to start this very
+        // device, so removing the backend that is blocking it is the action
+        // they are asking for.
+        //
+        // `BackendRunRecord` signals only a process it can prove is the one it
+        // recorded — same pid, same start time to the microsecond, same
+        // `p_comm`. A stale record is deleted, never acted on.
+        await reclaimLeftoverBackends()
 
         let checks = await preflight()
         for warning in checks.warnings {

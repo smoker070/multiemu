@@ -73,6 +73,10 @@ public final class QEMUProcess {
         install(pipe: standardError) { continuation.yield(.backendMessage($0)) }
 
         process.terminationHandler = { finished in
+            // Released before the event is published: once it is gone the pid
+            // may be recycled, and signalling a recycled pid would kill an
+            // unrelated process.
+            OrphanReaper.release(finished.processIdentifier)
             let reason = finished.terminationReason == .uncaughtSignal ? "signal" : "exit"
             continuation.yield(.exited(code: finished.terminationStatus, reason: reason))
             continuation.finish()
@@ -85,6 +89,10 @@ public final class QEMUProcess {
             throw StartFailure.launchFailed(String(describing: error))
         }
         startedAt = ContinuousClock().now
+        // macOS reparents this child to launchd if we die first, and a QEMU
+        // holding a device's qcow2 write lock makes that device unstartable
+        // until someone finds it with `lsof`. See `OrphanReaper`.
+        OrphanReaper.adopt(process.processIdentifier)
 
         MultiemuLog.backend.info("""
             Started \(self.executableURL.lastPathComponent, privacy: .public) \

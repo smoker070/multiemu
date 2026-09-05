@@ -282,9 +282,18 @@ public actor GuestConsoleResponder {
         // in `read` anyway. `stop()` is the only way to end a responder.
         while isRunning, generation == self.generation, faultsSeen < Self.faultBudget {
             guard let fileDescriptor = await connect(path: path, timeout: connectTimeout) else {
-                MultiemuLog.backend.error(
-                    "Guest console responder (\(service.name, privacy: .public)) could not connect to \(path, privacy: .public)")
-                onHealthChange?(.couldNotConnect(path: path))
+                // `connect` returns nil for two unrelated reasons: the deadline
+                // expired, or `stop()` cleared `isRunning` while it was waiting.
+                // Only the first is a fault. Reporting the second made every
+                // early backend exit manufacture a "port never connected"
+                // warning during its own teardown, which then appeared beside
+                // the real cause as if it were a second, co-equal problem — and
+                // it blamed the guest for something the host had done.
+                let wasStopped = !isRunning || generation != self.generation
+                MultiemuLog.backend.error("""
+                    Guest console responder (\(service.name, privacy: .public))                     \(wasStopped ? "stopped before connecting to" : "could not connect to")                     \(path, privacy: .public)
+                    """)
+                if !wasStopped { onHealthChange?(.couldNotConnect(path: path)) }
                 return
             }
             onHealthChange?(.serving)

@@ -2,6 +2,7 @@ import AppKit
 import MultiemuSupport
 import MultiemuConfiguration
 import MultiemuImages
+import MultiemuInput
 import MultiemuViewModels
 import SwiftUI
 import UniformTypeIdentifiers
@@ -11,8 +12,69 @@ import UniformTypeIdentifiers
 /// All branding, layout and artwork here is original to this project. Other
 /// desktop Android emulators were studied only as functional references; no
 /// third-party source, imagery, icons or trademarks are used.
+/// Stops running devices before the process ends.
+///
+/// Without this the app simply exits and macOS reparents every QEMU child to
+/// launchd, where nothing reaps it. Because a device's qcow2 carries an
+/// exclusive write lock, that leftover process makes the device unstartable
+/// until a human finds it — a real one was measured holding a disk for 44
+/// hours. `OrphanReaper` is the backstop that `SIGKILL`s anything still alive
+/// at exit; this is the graceful path that runs first, so the guest is asked to
+/// shut down and its disk is flushed rather than having the plug pulled.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+
+    /// Set once the window exists. Held statically because SwiftUI owns the
+    /// delegate's construction and there is no other seam to inject through.
+    static var model: AppModel?
+
+    /// How long a tidy shutdown may take before quitting anyway. Quitting must
+    /// not be able to hang: whatever has not stopped by then is killed by the
+    /// reaper a moment later, which is worse for the guest but better than an
+    /// application that will not close.
+    private static let shutdownBudget = Duration.seconds(6)
+
+    /// Guards the reply: `NSApp.reply(toApplicationShouldTerminate:)` must be
+    /// sent exactly once, and both the shutdown and its watchdog race to send it.
+    private var hasReplied = false
+
+    private func replyOnce() {
+        guard !hasReplied else { return }
+        hasReplied = true
+        NSApp.reply(toApplicationShouldTerminate: true)
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let model = Self.model else { return .terminateNow }
+        let running = model.devices.filter(\.isRunning)
+        guard !running.isEmpty else { return .terminateNow }
+
+        MultiemuLog.ui.info(
+            "Stopping \(running.count, privacy: .public) running device(s) before quitting")
+
+        Task { @MainActor in
+            for device in running { await device.stop() }
+            self.replyOnce()
+        }
+        // Quitting must not be able to hang. Whatever has not stopped inside the
+        // budget is left to `OrphanReaper`, which kills it as this process ends
+        // — worse for the guest than a clean shutdown, better than an
+        // application that refuses to close.
+        Task { @MainActor in
+            try? await Task.sleep(for: Self.shutdownBudget)
+            if !self.hasReplied {
+                MultiemuLog.ui.error("Device shutdown exceeded its budget; quitting anyway")
+            }
+            self.replyOnce()
+        }
+        return .terminateLater
+    }
+}
+
 @main
 struct MultiemuApp: App {
+
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     @State private var model = AppModel(
         deviceRoot: MultiemuApp.overrideRoot(for: "--device-root")
@@ -57,6 +119,9 @@ struct MultiemuApp: App {
             MainView(model: model)
                 .frame(minWidth: 960, minHeight: 640)
                 .onAppear {
+                    // The delegate needs the model to stop devices on quit, and
+                    // this is the first point at which both exist.
+                    AppDelegate.model = model
                     Self.applyAppearanceOverride()
                     if CommandLine.arguments.contains("--open-new-device") {
                         model.isCreatingDevice = true

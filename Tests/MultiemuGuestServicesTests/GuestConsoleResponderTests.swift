@@ -361,6 +361,33 @@ struct GuestConsoleResponderTests {
         #expect(reported.first == .couldNotConnect(path: path))
     }
 
+    @Test("A responder stopped while connecting reports nothing")
+    func stoppingWhileConnectingIsNotAFailure() async throws {
+        // `connect` returns nil both when its deadline expires and when `stop()`
+        // clears `isRunning` underneath it, and the two used to be indistinguish-
+        // able. Every backend that exited early therefore manufactured a
+        // "console port never connected" warning during its own teardown, which
+        // surfaced beside the real cause as an apparent second problem — and
+        // blamed a guest HAL for something the host had done. A user chasing a
+        // qcow2 write-lock failure was told to investigate the sensors HAL.
+        let path = (NSTemporaryDirectory() as NSString)
+            .appendingPathComponent("mm-absent-\(UUID().uuidString.prefix(8)).sock")
+
+        let reported = ReportBox()
+        let responder = GuestConsoleResponder(
+            socketPath: path, service: SensorsService(),
+            onHealthChange: { health in reported.record(health) })
+        // A timeout far longer than the test: the only way out is the stop, so
+        // a report here can only mean a stop was misread as a connect failure.
+        try await responder.start(connectTimeout: .seconds(30))
+        try? await Task.sleep(for: .milliseconds(150))
+        await responder.stop()
+        try? await Task.sleep(for: .milliseconds(200))
+
+        #expect(reported.first == nil,
+                "a deliberate stop must not be reported as a failure to connect")
+    }
+
     @Test("A responder reports that it is serving once connected")
     func reportsServing() async throws {
         let chardev = try FakeQEMUChardev()
