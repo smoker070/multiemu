@@ -1,0 +1,2 @@
+613caa44371f85e1a461bc030e07ddc2d71afe32 2024-10-04
+origin: https://gitlab.com/newbit/rootAVD.git (GPL-3.0, see LICENSE)

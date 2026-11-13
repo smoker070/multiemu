@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+dist/
+archive/
+previous-apps/
+.claude/
+*.apk
+Start Android 12.command
+CLAUDE.md
+!rootAVD-src/Apps/*.apk
