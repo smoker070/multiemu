@@ -14,6 +14,9 @@ APP="$DIST/Multiemu.app"
 BIN="$HERE/App/.build/release/Multiemu"
 
 rm -rf "$APP"
+# dist/ holds a build copy; keep it out of Spotlight/Launchpad so only
+# /Applications/Multiemu.app shows up as the app.
+mkdir -p "$DIST" && touch "$DIST/.metadata_never_index"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Multiemu"
 # rootAVD (GPL-3.0, gitlab.com/newbit/rootAVD): used only for "Play Store + Root"
